@@ -1,0 +1,17 @@
+#docker run ––name c1 ––detach -it python
+#docker run -it -d --name testing python
+- name: create containers to use as ansible managed nodes
+  hosts: localhost
+  tasks:
+  - community.docker.docker_container:
+      name: "{{ item }}"
+      image: python
+      detach: true
+      interactive: true
+      tty: true
+    loop: 
+      - c1
+  #- community.docker.docker_container:
+  #    name: sleeper
+  #    image: silverlogic/python3.6
+  #    command: sleep infinity
