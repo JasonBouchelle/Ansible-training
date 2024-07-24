@@ -1,0 +1,37 @@
+- name: Testing debug output
+  hosts: all
+  tasks:
+    #- name: All mounts on managed hosts
+    #  ansible.builtin.debug:
+    #    var: ansible_facts.mounts
+    #- name: Get all / mounts
+    #  ansible.builtin.debug:
+    #    var: ansible_facts.mounts | selectattr('mount', 'equalto', '/etc/resolv.conf')
+    - name: Get amount of space left on /etc/resolv.conf
+      ansible.builtin.debug:
+        var: ansible_facts.mounts | selectattr('mount', 'equalto', '/etc/resolv.conf') | map(attribute='size_available') | first
+    - ansible.builtin.pause:
+        prompt: "Press ENTER to continue"         
+    - name: set fact with available size on /etc/resolv.conf mount
+      ansible.builtin.set_fact:
+        available_size_root_mount: "{{ ansible_facts.mounts | selectattr('mount', 'equalto', '/etc/resolv.conf') | map(attribute='size_available') | first }}" 
+    - ansible.builtin.debug:
+        var: available_size_root_mount
+    - ansible.builtin.pause:
+        prompt: "Press enter to continue" 
+    - name: Available size on managed hosts with mount poit /etc/resolv.conf in human readable format
+      ansible.builtin.debug:
+        msg: Managed host {{ inventory_hostname }} has {{ available_size_root_mount | int | human_readable }} of space available on the root mount
+    - ansible.builtin.pause:
+        prompt: "Press enter to continue"   
+#    - ansible.builtin.apt:
+#        name: python3-apt
+#        state: present
+#    - ansible.builtin.pause:
+#        prompt: "Press enter to continue"         
+    - name: Update apt package if available space is above 5 gigabytes
+      ansible.builtin.apt:
+        update_cache: yes
+      become: true
+      when: available_size_root_mount | int > 500000000000       
+     

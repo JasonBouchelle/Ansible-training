@@ -1,0 +1,58 @@
+- name: create containers to use as ansible managed nodes
+  hosts: localhost
+  become: yes
+  vars:
+    docker_containers:
+      - name: ansible-h1
+        image: ansible-controller-min:latest
+        state: started
+      - name: ansible-h2
+        image: ansible-controller-min:latest
+        state: started   
+  tasks:
+    - name: Start Ansible Controller using local container image
+      docker_container:
+        name: ansible-controller
+        image: ansible-controller-min:latest
+        state: started
+    - name: Create ssh directory on ansible-controller
+      community.docker.docker_container_exec:
+        container: ansible-controller
+        command: "mkdir -p /root/.ssh && chmod 700 /root/.ssh"
+    - name: cd to ssh directory    
+      community.docker.docker_container_exec:
+        container: ansible-controller
+        command: "cd /root/.ssh" 
+    - name: create ssh key           
+      community.docker.docker_container_exec:
+        container: ansible-controller
+        command: "ssh-keygen -t rsa -b 4096 -C 'ansible-controller-ssh-key'"
+    - name: create pub_key variable    
+      community.docker.docker_container_exec:
+        container: ansible-controller
+        command: "cat ~/.ssh/id_rsa.pub"
+      register: pub_key
+        
+    - name: Start two ansible hosts using local container image
+      docker_container:
+        name: "{{ item.name }}"
+        image: "{{ item.image }}"
+        state: "{{ item.state }}" 
+      loop: "{{ docker_containers }}" 
+    - name: Create ssh files and folders ansible-h1
+      community.docker.docker_container_exec:
+        container: ansible-h1
+        command: "mkdir -p /root/.ssh/authorized_keys && chmod 700 /root/.ssh && chmod 600 /root/.ssh/authorized_keys" 
+    - name: Add key to authorized_keys ansible-h1      
+      community.docker.docker_container_exec:
+        container: ansible-h1
+        command: "echo '{{ pub_key }}' >> /root/.ssh/authorized_keys"
+    - name: Create ssh files and folders ansible-h2
+      community.docker.docker_container_exec:
+        container: ansible-h2
+        command: "mkdir -p /root/.ssh/authorized_keys && chmod 700 /root/.ssh && chmod 600 /root/.ssh/authorized_keys" 
+    - name: Add key to authorized_keys ansible-h2      
+      community.docker.docker_container_exec:
+        container: ansible-h2
+        command: "echo '{{ pub_key }}' >> /root/.ssh/authorized_keys"
+    

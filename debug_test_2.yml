@@ -1,0 +1,14 @@
+---
+- name: Install Nginx and wait for it to start before succeeding the task 
+  hosts: all
+  tasks:
+    - name: Install Nginx
+      ansible.builtin.package:
+        name: nginx
+        state: present
+      #become: true
+    - name: Wait for TCP port 80 to be open
+      ansible.builtin.wait_for:
+        timeout: 10 
+        port: 80
+        state: started    

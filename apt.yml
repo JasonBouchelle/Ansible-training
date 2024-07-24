@@ -1,0 +1,6 @@
+- name: Install python3-apt package
+  hosts: c1
+  tasks:
+  - ansible.builtin.apt:
+      name: python3-apt
+      state: present

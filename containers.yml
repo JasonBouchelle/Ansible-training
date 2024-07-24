@@ -2,16 +2,27 @@
 #docker run -it -d --name testing python
 - name: create containers to use as ansible managed nodes
   hosts: localhost
+  #module_defaults:
+  #  community.docker.docker_container:
+    #  force_kill: true
+    #  state: absent
   tasks:
   - community.docker.docker_container:
-      name: "{{ item }}"
-      image: python
+      name: "c{{ item }}"
+      image: ubuntu
       detach: true
       interactive: true
       tty: true
-    loop: 
-      - c1
+      #state: absent
+      #force_kill: true  #This will speed up the process of tearing down the containers but I want to do it nicely for the moment
+    loop: "{{ range(1,2) }}"
   #- community.docker.docker_container:
   #    name: sleeper
-  #    image: silverlogic/python3.6
+      #image: silverlogic/python3.6
+  #    image:  python
+  #    detach: true
+  #    interactive: true
+  #    tty: true
+      #state: absent
+      #force_kill: true
   #    command: sleep infinity
