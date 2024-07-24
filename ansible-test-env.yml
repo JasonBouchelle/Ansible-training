@@ -19,18 +19,14 @@
       community.docker.docker_container_exec:
         container: ansible-controller
         command: "mkdir -p /root/.ssh && chmod 700 /root/.ssh"
-    - name: cd to ssh directory    
-      community.docker.docker_container_exec:
-        container: ansible-controller
-        command: "cd /root/.ssh" 
     - name: create ssh key           
       community.docker.docker_container_exec:
         container: ansible-controller
-        command: "ssh-keygen -t rsa -b 4096 -C 'ansible-controller-ssh-key'"
+        command: "ssh-keygen -t rsa -b 4096 -P '' -C 'ansible-controller-ssh-key' -f /root/.ssh/id_rsa"
     - name: create pub_key variable    
       community.docker.docker_container_exec:
         container: ansible-controller
-        command: "cat ~/.ssh/id_rsa.pub"
+        command: "cat /root/.ssh/id_rsa.pub"
       register: pub_key
         
     - name: Start two ansible hosts using local container image
