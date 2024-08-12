@@ -2,35 +2,40 @@
 #docker run -it -d --name testing python
 - name: create containers to use as ansible managed nodes
   hosts: localhost
+  become: yes
   #module_defaults:
   #  community.docker.docker_container:
     #  force_kill: true
     #  state: absent
   tasks:
-    - name: Load the Docker image from local archive
+    - name: Load the Ansible Controller Docker image from local archive
       docker_image:
         name: ansible-controller-min
         source: local
-        path: /path/to/local/image.tar  # Path to the local Docker image archive
+        #path: /path/to/local/image.tar  # Path to the local Docker image archive
     - name: Setup Ansible Controller
       community.docker.docker_container:
         name: "ansible-c"
-        image: ansbile-controller-min
+        image: ansible-controller-min
         detach: true
         interactive: true
         tty: true
-        #state: absent 
+        state: started 
         #force_kill: true  #This will speed up the process of tearing down the containers but I want to do it nicely for the moment
+    - name: Load the Ansible Host Docker image from local archive
+      docker_image:
+        name: ansible-host-min
+        source: local    
     - name: Setup Ansible Hosts
       community.docker.docker_container:
         name: "ansible-h{{ item }}"
-        image: ansbile-host-min
+        image: ansible-host-min
         detach: true
         interactive: true
         tty: true
-        #state: absent
+        state: started
         #force_kill: true  #This will speed up the process of tearing down the containers but I want to do it nicely for the moment
-      loop: "{{ range(1,2) }}"
+      loop: "{{ range(1,3) }}"
   #- community.docker.docker_container:
   #    name: sleeper
       #image: silverlogic/python3.6
