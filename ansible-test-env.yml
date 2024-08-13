@@ -36,12 +36,6 @@
         container: ansible-controller
         command: ssh-keygen -t rsa -b 4096 -P '' -C 'ansible-controller-ssh-key' -f /root/.ssh/id_rsa      
       tags: server 
-    #- name: create pub_key variable    
-    #  community.docker.docker_container_exec:
-    #    container: ansible-controller
-    #    command: cat /root/.ssh/id_rsa.pub
-    #  register: pub_key
-    #  tags: server
     - name: Create pub_key variable
       command: docker exec ansible-controller sh -c "cat /root/.ssh/id_rsa.pub"
       register: pub_key      
@@ -56,77 +50,56 @@
   #ansible-h1 configuration     
     - name: Allow root login via ssh
       community.docker.docker_container_exec:
-        container: ansible-h1
+        container: "{{ item.name }}"
         command: sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config 
+      loop: "{{ docker_containers }}"   
     - name: Create ssh folder ansible-h1
       community.docker.docker_container_exec:
-        container: ansible-h1
+        container: "{{ item.name }}"
         command:  mkdir /root/.ssh
-      tags: hosts  
+      loop: "{{ docker_containers }}"  
     - name: touch authorized_keys
       community.docker.docker_container_exec:
-        container: ansible-h1
+        container: "{{ item.name }}"
         command: touch /root/.ssh/authorized_keys
+      loop: "{{ docker_containers }}"   
       tags: hosts      
     - name: Chmod /root/.ssh
       community.docker.docker_container_exec:
-        container: ansible-h1
+        container: "{{ item.name }}"
         command:  chmod 700 /root/.ssh
+      loop: "{{ docker_containers }}"   
       tags: hosts  
     - name: Chmod authorized_keys
       community.docker.docker_container_exec:
-        container: ansible-h1
+        container: "{{ item.name }}"
         command: chmod 600 /root/.ssh/authorized_keys 
+      loop: "{{ docker_containers }}"   
       tags: hosts   
     - name: Restart ssh service 
       community.docker.docker_container_exec:
-        container: ansible-h1
-        command: pkill sshd     
+        container: "{{ item.name }}"
+        command: pkill sshd  
+      loop: "{{ docker_containers }}"      
     - name: Change root password
       community.docker.docker_container_exec:
-        container: ansible-h1
-        command: sh -c "echo 'root:{{ lookup('env', 'ansible_root_pass') }}' | chpasswd"    
-    #Add pub_key to /root/.ssh/authorized_keys
+        container: "{{ item.name }}"
+        command: sh -c "echo 'root:{{ lookup('env', 'ansible_root_pass') }}' | chpasswd" 
+      loop: "{{ docker_containers }}"      
     - name: Add pub_key to /root/.ssh/authorized_keys file ansible-h1
-      command: docker exec ansible-h1 sh -c "echo {{ pub_key.stdout }} >> /root/.ssh/authorized_keys"  
-
-#ansible-h2 configuration     
-    - name: Allow root login via ssh
+      command: docker exec {{ item.name }} sh -c "echo {{ pub_key.stdout }} >> /root/.ssh/authorized_keys"  
+      loop: "{{ docker_containers }}" 
+    - name: Disable root login via ssh
       community.docker.docker_container_exec:
-        container: ansible-h2
-        command: sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config     
-    - name: Create ssh folder ansible-h2
+        container: "{{ item.name }}"
+        command: sed -i 's/PermitRootLogin yes/#PermitRootLogin prohibit-password/' /etc/ssh/sshd_config  
+      loop: "{{ docker_containers }}"    
+    - name: Restart sshd after disable root login
       community.docker.docker_container_exec:
-        container: ansible-h2
-        command:  mkdir /root/.ssh
-      tags: hosts  
-    - name: Chmod /root/.ssh
-      community.docker.docker_container_exec:
-        container: ansible-h2
-        command:  chmod 700 /root/.ssh
-      tags: hosts  
-    - name: touch authorized_keys
-      community.docker.docker_container_exec:
-        container: ansible-h2
-        command: touch /root/.ssh/authorized_keys
-      tags: hosts 
-    - name: Chmod authorized_keys
-      community.docker.docker_container_exec:
-        container: ansible-h2
-        command: chmod 600 /root/.ssh/authorized_keys 
-      tags: hosts
-    - name: Restart ssh service 
-      community.docker.docker_container_exec:
-        container: ansible-h2
-        command: pkill sshd     
-    - name: Change root password
-      community.docker.docker_container_exec:
-        container: ansible-h2
-        command: sh -c "echo 'root:{{ lookup('env', 'ansible_root_pass') }}' | chpasswd"    
-    - name: Add pub_key to /root/.ssh/authorized_keys file ansible-h2
-      command: docker exec ansible-h2 sh -c "echo {{ pub_key.stdout }} >> /root/.ssh/authorized_keys"    
-
- 
+        container:  "{{ item.name }}"
+        command: pkill sshd 
+      loop: "{{ docker_containers }}"      
+      
  
  #Get IP addresses for docker containers and print to the console 
     - name: Get IP address of ansible-controller container
@@ -147,8 +120,4 @@
       register: docker_info
     - name: Print docker info
       debug: 
-        msg: "{{ docker_info }}"   
-
-    - name: Print ansible_root_pass
-      ansible.builtin.debug:
-        msg: "The DB password is {{ lookup('env', 'ansible_root_pass') }}"    
+        msg: "{{ docker_info }}"      
