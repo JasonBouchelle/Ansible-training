@@ -85,7 +85,7 @@
     - name: Change root password
       community.docker.docker_container_exec:
         container: ansible-h1
-        command: sh -c "echo 'root:P_r3acher023' | chpasswd"    
+        command: sh -c "echo 'root:{{ lookup('env', 'ansible_root_pass') }}' | chpasswd"    
     #Add pub_key to /root/.ssh/authorized_keys
     - name: Add pub_key to /root/.ssh/authorized_keys file ansible-h1
       command: docker exec ansible-h1 sh -c "echo {{ pub_key.stdout }} >> /root/.ssh/authorized_keys"  
@@ -121,11 +121,11 @@
         command: pkill sshd     
     - name: Change root password
       community.docker.docker_container_exec:
-        container: ansible-h1
-        command: sh -c "echo 'root:P_r3acher023' | chpasswd"    
+        container: ansible-h2
+        command: sh -c "echo 'root:{{ lookup('env', 'ansible_root_pass') }}' | chpasswd"    
     - name: Add pub_key to /root/.ssh/authorized_keys file ansible-h2
       command: docker exec ansible-h2 sh -c "echo {{ pub_key.stdout }} >> /root/.ssh/authorized_keys"    
- 
+
  
  
  #Get IP addresses for docker containers and print to the console 
@@ -148,3 +148,7 @@
     - name: Print docker info
       debug: 
         msg: "{{ docker_info }}"   
+
+    - name: Print ansible_root_pass
+      ansible.builtin.debug:
+        msg: "The DB password is {{ lookup('env', 'ansible_root_pass') }}"    
