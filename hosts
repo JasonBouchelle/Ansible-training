@@ -1,0 +1,7 @@
+[ansible-hosts]
+172.17.0.3
+172.17.0.4
+
+[ansible-controller]
+172.17.0.2
+

@@ -14,19 +14,13 @@
       Ansible-h1 IP address is {{ ansible_h1_ip.stdout }}
       Ansible-h2 IP address is {{ ansible_h2_ip.stdout }}     
   tasks:
+  #Ansible-controller configuration
     - name: Start Ansible Controller using local container image
       docker_container:
         name: ansible-controller
         image: ansible-controller-min:latest
         state: started  
       tags: server  
-    #- name: Wait for the container to be ready
-    #  wait_for:
-    #    port: 22  # Change if SSH runs on a different port
-    #    host: "ansible-controller"  # Replace with your actual host or IP
-    #    state: started
-    #    timeout: 30
-    #  tags: server     
     - name: Create .ssh directory
       community.docker.docker_container_exec:
         container: ansible-controller
@@ -42,13 +36,15 @@
         container: ansible-controller
         command: ssh-keygen -t rsa -b 4096 -P '' -C 'ansible-controller-ssh-key' -f /root/.ssh/id_rsa      
       tags: server 
-    - name: create pub_key variable    
-      community.docker.docker_container_exec:
-        container: ansible-controller
-        command: cat /root/.ssh/id_rsa.pub
-      register: pub_key
-      tags: server
-        
+    #- name: create pub_key variable    
+    #  community.docker.docker_container_exec:
+    #    container: ansible-controller
+    #    command: cat /root/.ssh/id_rsa.pub
+    #  register: pub_key
+    #  tags: server
+    - name: Create pub_key variable
+      command: docker exec ansible-controller sh -c "cat /root/.ssh/id_rsa.pub"
+      register: pub_key      
     - name: Start two ansible hosts using local container image
       docker_container:
         name: "{{ item.name }}"
@@ -56,32 +52,49 @@
         state: "{{ item.state }}"  
       loop: "{{ docker_containers }}" 
       tags: hosts
+
+  #ansible-h1 configuration     
+    - name: Allow root login via ssh
+      community.docker.docker_container_exec:
+        container: ansible-h1
+        command: sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config 
     - name: Create ssh folder ansible-h1
       community.docker.docker_container_exec:
         container: ansible-h1
         command:  mkdir /root/.ssh
       tags: hosts  
+    - name: touch authorized_keys
+      community.docker.docker_container_exec:
+        container: ansible-h1
+        command: touch /root/.ssh/authorized_keys
+      tags: hosts      
     - name: Chmod /root/.ssh
       community.docker.docker_container_exec:
         container: ansible-h1
         command:  chmod 700 /root/.ssh
       tags: hosts  
-    - name: touch authorized_keys
-      community.docker.docker_container_exec:
-        container: ansible-h1
-        command: touch /root/.ssh/authorized_keys
-      tags: hosts 
     - name: Chmod authorized_keys
       community.docker.docker_container_exec:
         container: ansible-h1
         command: chmod 600 /root/.ssh/authorized_keys 
-      tags: hosts
-    - name: Set SSH key
+      tags: hosts   
+    - name: Restart ssh service 
       community.docker.docker_container_exec:
         container: ansible-h1
-        command: echo '{{ pub_key }}' >> /root/.ssh/authorized_keys
-      tags: hosts  
+        command: pkill sshd     
+    - name: Change root password
+      community.docker.docker_container_exec:
+        container: ansible-h1
+        command: sh -c "echo 'root:P_r3acher023' | chpasswd"    
+    #Add pub_key to /root/.ssh/authorized_keys
+    - name: Add pub_key to /root/.ssh/authorized_keys file ansible-h1
+      command: docker exec ansible-h1 sh -c "echo {{ pub_key.stdout }} >> /root/.ssh/authorized_keys"  
 
+#ansible-h2 configuration     
+    - name: Allow root login via ssh
+      community.docker.docker_container_exec:
+        container: ansible-h2
+        command: sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config     
     - name: Create ssh folder ansible-h2
       community.docker.docker_container_exec:
         container: ansible-h2
@@ -102,13 +115,20 @@
         container: ansible-h2
         command: chmod 600 /root/.ssh/authorized_keys 
       tags: hosts
-    - name: Set SSH key
+    - name: Restart ssh service 
       community.docker.docker_container_exec:
         container: ansible-h2
-        command: echo '{{ pub_key }}' >> /root/.ssh/authorized_keys
-      tags: hosts   
-
-# Get IP addresses for docker containers and print to the console 
+        command: pkill sshd     
+    - name: Change root password
+      community.docker.docker_container_exec:
+        container: ansible-h1
+        command: sh -c "echo 'root:P_r3acher023' | chpasswd"    
+    - name: Add pub_key to /root/.ssh/authorized_keys file ansible-h2
+      command: docker exec ansible-h2 sh -c "echo {{ pub_key.stdout }} >> /root/.ssh/authorized_keys"    
+ 
+ 
+ 
+ #Get IP addresses for docker containers and print to the console 
     - name: Get IP address of ansible-controller container
       command: docker exec ansible-controller sh -c "ifconfig -a | grep inet | grep 172 | awk '{print $1, $2}' | awk -F ":" '{print $2}'"
       register: ansible_controller_ip  
@@ -122,5 +142,9 @@
       debug:
         msg: "{{ container_ips }}"
 
-
-
+    - name: List docker info
+      command: docker ps -a
+      register: docker_info
+    - name: Print docker info
+      debug: 
+        msg: "{{ docker_info }}"   
