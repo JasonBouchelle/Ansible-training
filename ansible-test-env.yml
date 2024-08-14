@@ -25,21 +25,41 @@
       community.docker.docker_container_exec:
         container: ansible-controller
         command: mkdir -p /root/.ssh
-      tags: server  
+  
     - name: Chmod 700 /root/.ssh
       community.docker.docker_container_exec:
         container: ansible-controller
         command: chmod 700 /root/.ssh
-      tags: server  
+ 
     - name: Create ssh key   
       community.docker.docker_container_exec:
         container: ansible-controller
         command: ssh-keygen -t rsa -b 4096 -P '' -C 'ansible-controller-ssh-key' -f /root/.ssh/id_rsa      
-      tags: server 
+
     - name: Create pub_key variable
       command: docker exec ansible-controller sh -c "cat /root/.ssh/id_rsa.pub"
-      register: pub_key      
-    - name: Start two ansible hosts using local container image
+      register: pub_key 
+
+    - name: Create ansible directory on ansible-controller
+      command: docker exec ansible-controller sh -c "mkdir /root/ansible" 
+
+    - name: Install Git
+      command: docker exec ansible-controller sh -c "apk update && apk add git"   
+  
+    - name: Initialize Git 
+      command: docker exec ansible-controller sh -c "cd /root/ansible && git init"
+
+    - name: Set git email 
+      command: docker exec ansible-controller sh -c "git config --global user.email "jbouchelle@gmail.com""
+
+    - name: Set git username
+      command: docker exec ansible-controller sh -c "git config --global user.name "Jason Bouchelle""
+
+    - name: Clone ansible-controller repository
+      command: docker exec ansible-controller sh -c "cd /root/ansible && git clone https://jasonbouchelle:{{ lookup('env', 'github_pat') }}/jasonbouchelle/ansible-controller.git"
+
+
+    - name: Start two ansible hosts using local container image    
       docker_container:
         name: "{{ item.name }}"
         image: "{{ item.image }}"
@@ -113,7 +133,8 @@
       register: ansible_h2_ip   
     - name: "Print ip address for ansible-controller"
       debug:
-        msg: "{{ container_ips }}"
+        msg: "{{ container_ips }}"    
+
 
     - name: List docker info
       command: docker ps -a
